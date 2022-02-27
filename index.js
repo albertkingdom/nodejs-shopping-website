@@ -3,7 +3,7 @@ const express = require("express");
 const passport = require("passport");
 const cors = require("cors")
 
-const db = require("./db");
+// const db = require("./db");
 const app = express();
 
 const userRouter = require("./routes/userRoute");
