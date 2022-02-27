@@ -12,7 +12,7 @@ const upload = multer({ dest: "uploads/" });
 const { cloudinary } = require("../config/cloudinaryConfig");
 
 router.get("/api/products", (req, res) => {
-  let sql = "SELECT * FROM product";
+  let sql = "SELECT id, name, price, img_name AS imgName, img_url AS imgUrl FROM product";
   db.execute(sql, (err, result) => {
     if (err) {
       throw err;
@@ -100,7 +100,7 @@ router.post(
 );
 //=======
 router.get("/api/products/:id", (req, res) => {
-  let sql = "SELECT * FROM product WHERE id = ?";
+  let sql = "SELECT id, name, price, img_name AS imgName, img_url AS imgUrl FROM product WHERE id = ?";
   const id = req.params.id;
 
   db.execute(sql, [id], (err, result) => {
