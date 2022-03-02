@@ -4,9 +4,8 @@ const multer = require("multer");
 const router = express.Router();
 const db = require("../db");
 const isAuth = require("./isAuthMiddleware");
+const { body, validationResult } = require("express-validator");
 
-//==== alternative
-// const storage = multer.memoryStorage()
 const fs = require("fs");
 const upload = multer({ dest: "uploads/" });
 const { cloudinary } = require("../config/cloudinaryConfig");
@@ -21,46 +20,28 @@ router.get("/api/products", (req, res) => {
   });
 });
 
-// router.post(
-//   "/api/products",
-//   passport.authenticate("token", { session: false }),
-//   isAuth.isAdmin,
-//   upload.single("productImage"),
-//   (req, res) => {
-//     let sql = "";
-//     let sqlParameter = [];
-//     const { productName, productPrice } = req.body;
-//     if (req.file) {
-//       // new product image uploaded
-//       const { filename: imgName, path: imgUrl } = req.file;
-//       sql =
-//         "INSERT INTO product (name, price, imgUrl, imgName) VALUES (?,?,?,?)";
 
-//       sqlParameter = [productName, productPrice, imgUrl, imgName];
-//     } else {
-//       // without new product image
-//       sql = "INSERT INTO product (name, price) VALUES (?,?)";
-//       sqlParameter = [productName, productPrice];
-//     }
-
-//     db.execute(sql, sqlParameter, (err, result) => {
-//       if (err) {
-//         throw err;
-//       }
-//       res.json({ id: result.insertId });
-//     });
-//   }
-// );
-
-// ===========alternative post
+const validator = [
+  body("productName").trim().notEmpty().withMessage("不得為空白"),
+  body("productPrice").trim().not().isEmpty().withMessage("不得為空白").matches(/^\d+$/).withMessage("Must be Digits.")
+]
 
 router.post(
   "/api/products",
   passport.authenticate("token", { session: false }),
   isAuth.isAdmin,
   upload.single("productImage"),
-  async (req, res) => {
-    //console.log(req.file, req.body);
+  validator,
+
+  async (req, res, next) => {
+
+    //  validation result handler
+    const errors = validationResult(req);
+    console.log("valid", errors)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    //
     let sql = "";
     let sqlParameter = [];
     const { productName, productPrice } = req.body;
@@ -76,7 +57,7 @@ router.post(
           }
         );
 
-      // TODO: delete tmp file
+      // delete tmp file
       fs.rmSync(`${tempFilePath}`, {
         force: true,
       });
@@ -115,7 +96,13 @@ router.put(
   passport.authenticate("token", { session: false }),
   isAuth.isAdmin,
   upload.single("productImage"),
+  validator,
   async (req, res) => {
+    const errors = validationResult(req);
+    console.log("valid", errors)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
     let sql = "";
     let sqlParameter = [];
     const id = req.params.id;

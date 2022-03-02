@@ -4,35 +4,48 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../db");
 const passport = require("passport");
+const { body, validationResult } = require("express-validator");
 
-router.post("/api/register", (req, res) => {
-  const { email, password } = req.body;
-  let sql = "INSERT INTO users (email, password) VALUES (?, ?)";
-  bcrypt.hash(password, 10, (err, hash) => {
-    db.promise()
-      .execute(sql, [email, hash])
-      .then(([rows, fields]) => {
-        if (rows) {
-          console.log(rows);
-        }
+router.post("/api/register",
+  body("email").isEmail().withMessage("Not a vaild email format!"),
+  body("password").isLength({ min: 6 }).withMessage("Password must at least 6 characters!"),
+  body("name").trim().notEmpty().withMessage("Name can't be empty!"),
+  (req, res) => {
+    console.log("register", req)
+    //
+    const errors = validationResult(req);
+    console.log("valid", errors)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-        res.json(rows);
-        return rows.insertId;
-      })
-      .then((userId) => {
-        // console.log("userId", userId);
-        // write user_id and roles_id relationship to table
-        let sql = "INSERT INTO users_roles (users_id, roles_id) VALUES (?,?)";
-        db.execute(sql, [userId, 1], (err, result) => {
-          if (err) {
-            throw err;
+    const { email, password } = req.body;
+    let sql = "INSERT INTO users (email, password) VALUES (?, ?)";
+    bcrypt.hash(password, 10, (err, hash) => {
+      db.promise()
+        .execute(sql, [email, hash])
+        .then(([rows, fields]) => {
+          if (rows) {
+            console.log(rows);
           }
-          console.log("insert roles success", result);
-        });
-      })
-      .catch(console.log);
+
+          res.json(rows);
+          return rows.insertId;
+        })
+        .then((userId) => {
+          // console.log("userId", userId);
+          // write user_id and roles_id relationship to table
+          let sql = "INSERT INTO users_roles (users_id, roles_id) VALUES (?,?)";
+          db.execute(sql, [userId, 1], (err, result) => {
+            if (err) {
+              throw err;
+            }
+            console.log("insert roles success", result);
+          });
+        })
+        .catch(console.log);
+    });
   });
-});
 
 router.post(
   "/api/login",
@@ -88,43 +101,7 @@ const jwtSignAccessToken = (userInfo) =>
 const jwtSignRefreshToken = (userInfo) =>
   jwt.sign(userInfo, "secret", { expiresIn: 60 * 60 * 24 });
 
-const getRoleAndResonse = (email, res) => {
-  //get role from db
-  let sql =
-    "SELECT users_roles.roles_id FROM users_roles INNER JOIN users ON users_roles.users_id=users.id WHERE users.email=?";
-  db.promise()
-    .execute(sql, [email])
-    .then(([rows, fields]) => {
-      //console.log("result", rows); //[]
-      const roleId = rows[0].roles_id;
-      switch (roleId) {
-        case 1:
-          //console.log(["ROLE_USER"]);
-          return ["ROLE_USER"];
 
-        case 2:
-          //console.log(["ROLE_ADMIN"]);
-          return ["ROLE_ADMIN"];
-        default:
-          break;
-      }
-    })
-    .then((role) => {
-      console.log("role result", role);
-      const accessJwt = jwtSignAccessToken({
-        email: email,
-        roles: role,
-      });
-      const refreshJwt = jwtSignRefreshToken({
-        email: email,
-      });
-      res.json({
-        accessToken: accessJwt,
-        refreshToken: refreshJwt,
-        username: email,
-      });
-    });
-};
 const getRole = async (email) => {
   //get role from db
   let sql =
